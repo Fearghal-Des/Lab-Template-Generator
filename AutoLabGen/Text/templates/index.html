@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <title>Lab-Helper</title>
+    <style>
+      body{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      /* styles for the fixed header */
+      header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: #333;
+        color: #fff;
+        padding: 10px;
+        text-align: center;
+      }
+
+      /* styles for the main content */
+      main {
+        margin-top: 100px; /* to account for the height of the fixed header */
+        max-width: 800px;
+        padding: 20px;
+        text-align: center;
+        font-family: Georgia, 'Times New Roman', Times, serif;
+      }
+      
+      #description{
+        text-align: center;
+      }
+      /* styles for the text box */
+      #text-box {
+        width: 100%;
+        height: 20px;
+        margin: 20px 0;
+        padding: 10px;
+        font-size: 16px;
+        border: 1px solid #ccc;
+        resize: none;
+      }
+
+      /* styles for the download button */
+      #download-button {
+        margin: 20px 0;
+        padding: 10px;
+        background-color: #333;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      #download-button:hover {
+        background-color: #555;
+      }
+
+      #generate-text{
+        margin: 20px 0;
+        padding: 10px;
+        background-color: #333;
+        color: #fff;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+      }
+
+      #generate-text:hover {
+        background-color: #555;
+      }
+
+      /* styles for the generated text */
+      #text-generated {
+        margin: auto;
+        padding: auto;
+        width: 100%;
+        border: 1px solid #ccc;
+        height: 220px;
+        text-align: left;
+        overflow: auto;
+      }
+      #user_input{
+        display: block;
+        width: 100%;
+        height: 20px;
+        border: 1px solif #ccc;
+      }
+    </style>
+    <script>
+    
+        function saveAs(blob, filename){
+            var link = document.createElement('a');
+            if (link.download !== undefined) {
+              var url = URL.createObjectURL(blob);
+              link.setAttribute('href', url);
+              link.setAttribute('download', filename);
+              link.style.visibility = 'hidden';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+            }
+        }
+        // code for the download button
+        function generateWordDocument() {
+          var text = document.getElementById("text-generated").innerHTML;
+          var cleanText = text.replace(/<br>/g, "\n"); // replace all <br> tags with \n
+          var blob = new Blob(['\ufeff', cleanText], {
+            type: 'application/msword'
+          });
+          saveAs(blob, 'Lab-Helper.doc');
+        }
+        
+        function ajaxRequest(method, url, data, dataType, callback){
+          $.ajax({
+            type: method,
+            url: url,
+            data: data,
+            dataType: dataType,
+            beforeSend: function(xhr, settings) { // add this to set the CSRF token header
+                xhr.setRequestHeader("X-CSRFToken", getCookie('csrftoken'));
+            },
+            success: function(response){
+              callback(null, response)
+            },
+            error: function(xhr, status, error){
+              callback(error, null)
+            }
+          });
+        }
+        
+        function sendTitle(){
+          var data = {
+            'user_input': $('#user_input').val(),
+            'csrfmiddlewaretoken': getCookie('csrftoken')
+          };
+        
+          var typingInterval = 50; // milliseconds between each character typed
+          var responseDiv = document.getElementById('text-generated');
+          responseDiv.innerHTML = ''; // clear any existing content
+        
+          ajaxRequest('POST', '/chat_json_response/', data, 'json', function(err, response){
+            if(err){
+              console.log(err);
+            } else {
+              var text = response.chat_bot_response;
+              var i = 0;
+        
+              // define a function to add each character of the text with a typing effect
+              function typeNextCharacter() {
+                if (i < text.length) {
+                  responseDiv.innerHTML += text.charAt(i);
+                  if (text.charAt(i) == '/') {
+                      document.getElementById('text-generated').innerHTML += '<br>';
+                    }
+                  }
+                  i++;
+                  setTimeout(typeNextCharacter, typingInterval);
+                }
+              }
+        
+              // start the typing effect
+              typeNextCharacter();
+            });
+          }
+        
+        // function to get the value of the CSRF token cookie
+        function getCookie(name) {
+          var cookieValue = null;
+          if (document.cookie && document.cookie !== '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+              var cookie = cookies[i].trim();
+              if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+              }
+            }
+          }
+          return cookieValue;
+        }
+        
+        
+    </script>
+  </head>
+  <body>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <header>
+      <h1>Lab-Helper</h1>
+    </header>
+    <main>
+      <p>Lab-Helper is an app that helps you generate a template with helpful comments for your lab reports. Simply type in the text box below, and click the button to generate a template.</p>
+      <input name='user_input' id='user_input' type='text' value='{% if request.POST.user_input %}{{request.POST.user_input}}{% endif %}'>
+      {% csrf_token %}
+      <button id="generate-text" type='submit'>Generate Text</button>
+      <script>
+        // code for the generate text button
+        document.getElementById('generate-text').addEventListener("click", sendTitle);
+        </script>
+        <div id="text-generated">
+        </div>
+</body>
+        <button id="download-button">Download</button>
+        <script>
+            function clearRequest(){
+                document.getElementById("user_input").value = "";
+            }
+             
+             function clearInput() {
+                document.getElementById("user_input").value = "";
+              }
+          document.getElementById("download-button").addEventListener("click", generateWordDocument);
+          document.getElementById("generate-text").addEventListener("click", function() {
+            document.getElementById("user_input").value = document.getElementById("user_input").value;
+          });
+      </script>
+    </main>
+  </body>
+</html>
